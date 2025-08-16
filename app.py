@@ -8,24 +8,39 @@ from flask_limiter.util import get_remote_address
 HTML = """
 <!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Instagram Unliker (SessionID only)</title>
+<title>Instagram Unliker</title>
 <style>
  body{font-family:system-ui;margin:24px;max-width:820px}
  input,button{padding:8px;font-size:16px}
  textarea{width:100%;height:300px}
  .box{border:1px solid #ddd;padding:16px;border-radius:10px}
  .muted{color:#666}
+ .row{display:flex;gap:12px;flex-wrap:wrap}
+ .row>div{flex:1;min-width:260px}
 </style>
-<h2>Instagram Unliker (SessionID only)</h2>
-<p class="muted">We do not store your session. Use at your own risk. Keep batches small (20–50).</p>
+<h2>Instagram Unliker</h2>
+<p class="muted">We do not store credentials or sessions. Use at your own risk. Keep batches small (20–50).</p>
 <div class="box">
   <form method="post">
-    <label>sessionid (from your own browser cookies):</label><br>
-    <input name="sid" style="width:520px" minlength="20" required><br><br>
-    <label>Unlike up to:</label>
-    <input name="count" type="number" value="30" min="1" max="200">
-    <label style="margin-left:12px">Delay (seconds per action):</label>
-    <input name="delay" type="number" value="1" min="0" step="0.5"><br><br>
+    <h3>Login</h3>
+    <div class="row">
+      <div>
+        <label>Use sessionid (recommended):</label><br>
+        <input name="sid" style="width:520px" placeholder="Paste your sessionid from browser cookies">
+      </div>
+    </div>
+    <p class="muted">— OR —</p>
+    <div class="row">
+      <div><label>Username</label><br><input name="user" style="width:260px"></div>
+      <div><label>Password</label><br><input name="pass" type="password" style="width:260px"></div>
+      <div><label>TOTP Secret (if 2FA)</label><br><input name="totp" placeholder="Base32 key, optional" style="width:260px"></div>
+    </div>
+    <h3>Options</h3>
+    <div class="row">
+      <div><label>Unlike up to</label><br><input name="count" type="number" value="30" min="1" max="200"></div>
+      <div><label>Delay (seconds)</label><br><input name="delay" type="number" value="1" min="0" step="0.5"></div>
+    </div>
+    <br>
     <button type="submit">Start</button>
   </form>
 </div>
@@ -33,9 +48,9 @@ HTML = """
   <h3>Log</h3>
   <textarea readonly>{{ log }}</textarea>
 {% endif %}
-<p class="muted">Tip: Get your sessionid via DevTools → Application/Storage → Cookies → https://www.instagram.com → sessionid.</p>
-<p class="muted">Disclaimer: Automation may violate Instagram’s Terms.</p>
+<p class="muted">Tip: sessionid is in DevTools → Application/Storage → Cookies → https://www.instagram.com → sessionid.</p>
 """
+
 
 def iter_liked_media_ids(client, limit):
     ids, max_id = [], None
@@ -113,3 +128,4 @@ if __name__ == "__main__":
     # For local testing
 
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
