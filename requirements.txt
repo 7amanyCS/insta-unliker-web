@@ -5,6 +5,9 @@ gunicorn==22.0.0
 instagrapi==2.2.1
 pydantic==2.11.7
 PySocks==1.7.1
-pycryptodomex==3.20.0
+pycryptodomex==3.23.0
 pyotp==2.9.0
-moviepy==2.0.0   # fixes that moviepy==1.0.3 error
+Pillow>=10.0.0
+moviepy==2.0.0  # newer than 1.0.3; okay to ignore pip's warning
+
+
