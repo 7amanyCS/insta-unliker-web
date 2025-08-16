@@ -81,65 +81,66 @@ def create_app():
 
     @app.route("/", methods=["GET","POST"])
     @limiter.limit("6/minute")
-    def index():
-        log = ""
-                if request.method == "POST":
-            sid   = (request.form.get("sid") or "").strip()
-            user  = (request.form.get("user") or "").strip()
-            pw    = (request.form.get("pass") or "").strip()
-            totps = (request.form.get("totp") or "").strip()
+    @app.route("/", methods=["GET", "POST"])
+def index():
+    log = ""
+    if request.method == "POST":
+        sid   = (request.form.get("sid") or "").strip()
+        user  = (request.form.get("user") or "").strip()
+        pw    = (request.form.get("pass") or "").strip()
+        totps = (request.form.get("totp") or "").strip()
 
-            try: count = min(max(int(request.form.get("count", 30)), 1), 200)
-            except: count = 30
-            try: delay = max(float(request.form.get("delay", 1.0)), 0.0)
-            except: delay = 1.0
+        try:
+            count = min(max(int(request.form.get("count", 30)), 1), 200)
+        except:
+            count = 30
+        try:
+            delay = max(float(request.form.get("delay", 1.0)), 0.0)
+        except:
+            delay = 1.0
 
-            try:
-                c = Client(); c.delay_range = [1, 3]
+        try:
+            c = Client()
+            c.delay_range = [1, 3]
 
-                if sid:
-                    log += "Logging in with sessionid…\n"
-                    c.login_by_sessionid(sid)
-                elif user and pw:
-                    log += "Logging in with username/password…\n"
-                    if totps:
-                        code = pyotp.TOTP(totps).now()
-                        log += "Using TOTP 2FA…\n"
-                        c.login(user, pw, verification_code=code)
-                    else:
-                        c.login(user, pw)
+            if sid:
+                log += "Logging in with sessionid…\n"
+                c.login_by_sessionid(sid)
+            elif user and pw:
+                log += "Logging in with username/password…\n"
+                if totps:
+                    code = pyotp.TOTP(totps).now()
+                    log += "Using TOTP 2FA…\n"
+                    c.login(user, pw, verification_code=code)
                 else:
-                    log += "Error: Provide sessionid OR username/password.\n"
-                    return render_template_string(HTML, log=log)
+                    c.login(user, pw)
+            else:
+                log += "Error: Provide sessionid OR username/password.\n"
+                return render_template_string(HTML, log=log)
 
-                log += "Fetching liked posts…\n"
-                ids = iter_liked_media_ids(c, count)
-                if not ids:
-                    log += "No liked posts found.\n"
-                else:
-                    log += f"Found {len(ids)}. Unliking up to {count}…\n"
-                    removed = 0
-                    for mid in ids:
-                        try:
-                            c.media_unlike(mid)
-                            removed += 1
-                            log += f"{removed}: Unliked {mid}\n"
-                            time.sleep(delay)
-                        except Exception as e:
-                            log += f"Stopped due to rate limit/API error: {e}\n"
-                            break
-                    log += f"Done. Unliked {removed} posts.\n"
-            except Exception as e:
-                log += f"Error: {e}\n"
+            log += "Fetching liked posts…\n"
+            ids = iter_liked_media_ids(c, count)
+            if not ids:
+                log += "No liked posts found.\n"
+            else:
+                log += f"Found {len(ids)}. Unliking up to {count}…\n"
+                removed = 0
+                for mid in ids:
+                    try:
+                        c.media_unlike(mid)
+                        removed += 1
+                        log += f"{removed}: Unliked {mid}\n"
+                        time.sleep(delay)
+                    except Exception as e:
+                        log += f"Stopped due to rate limit/API error: {e}\n"
+                        break
+                log += f"Done. Unliked {removed} posts.\n"
+        except Exception as e:
+            log += f"Error: {e}\n"
 
-        return render_template_string(HTML, log=log)
-    return app
+    return render_template_string(HTML, log=log)
 
-app = create_app()
 
 if __name__ == "__main__":
-    # For local testing
-
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
 
