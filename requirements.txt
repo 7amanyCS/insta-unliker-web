@@ -1,5 +1,7 @@
 flask==3.0.3
 flask-limiter==3.8.0
-instagrapi==2.1.2
+instagrapi==2.2.1
 requests>=2.32.0
 gunicorn==22.0.0
+
+
