@@ -1,87 +1,41 @@
+import os
+import time
 import pyotp
-import os, time
-from flask import Flask, render_template_string, request
+from flask import Flask, request, render_template_string
 from instagrapi import Client
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 HTML = """
-<!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Instagram Unliker</title>
-<style>
- body{font-family:system-ui;margin:24px;max-width:820px}
- input,button{padding:8px;font-size:16px}
- textarea{width:100%;height:300px}
- .box{border:1px solid #ddd;padding:16px;border-radius:10px}
- .muted{color:#666}
- .row{display:flex;gap:12px;flex-wrap:wrap}
- .row>div{flex:1;min-width:260px}
-</style>
-<h2>Instagram Unliker</h2>
-<p class="muted">We do not store credentials or sessions. Use at your own risk. Keep batches small (20–50).</p>
-<div class="box">
+<!DOCTYPE html>
+<html>
+<head><title>Insta Unliker</title></head>
+<body>
+  <h1>Insta Unliker</h1>
   <form method="post">
-    <h3>Login</h3>
-    <div class="row">
-      <div>
-        <label>Use sessionid (recommended):</label><br>
-        <input name="sid" style="width:520px" placeholder="Paste your sessionid from browser cookies">
-      </div>
-    </div>
-    <p class="muted">— OR —</p>
-    <div class="row">
-      <div><label>Username</label><br><input name="user" style="width:260px"></div>
-      <div><label>Password</label><br><input name="pass" type="password" style="width:260px"></div>
-      <div><label>TOTP Secret (if 2FA)</label><br><input name="totp" placeholder="Base32 key, optional" style="width:260px"></div>
-    </div>
-    <h3>Options</h3>
-    <div class="row">
-      <div><label>Unlike up to</label><br><input name="count" type="number" value="30" min="1" max="200"></div>
-      <div><label>Delay (seconds)</label><br><input name="delay" type="number" value="1" min="0" step="0.5"></div>
-    </div>
-    <br>
-    <button type="submit">Start</button>
+    <p>Session ID: <input type="text" name="sid"></p>
+    <p>Username: <input type="text" name="user"></p>
+    <p>Password: <input type="password" name="pass"></p>
+    <p>TOTP Secret: <input type="text" name="totp"></p>
+    <p>Count: <input type="number" name="count" value="30"></p>
+    <p>Delay: <input type="number" name="delay" value="1.0" step="0.1"></p>
+    <p><input type="submit" value="Start"></p>
   </form>
-</div>
-{% if log %}
-  <h3>Log</h3>
-  <textarea readonly>{{ log }}</textarea>
-{% endif %}
-<p class="muted">Tip: sessionid is in DevTools → Application/Storage → Cookies → https://www.instagram.com → sessionid.</p>
+  <pre>{{ log }}</pre>
+</body>
+</html>
 """
 
+app = Flask(__name__)
 
-def iter_liked_media_ids(client, limit):
-    ids, max_id = [], None
-    while len(ids) < limit:
-        params = {"max_id": max_id} if max_id else {}
-        data = client.private_request("feed/liked/", params=params)
-        items = (data or {}).get("items", []) or []
-        if not items: break
-        for item in items:
-            media = item.get("media", item) or {}
-            pk = str(media.get("pk") or media.get("id") or "").strip()
-            if pk:
-                ids.append(pk)
-                if len(ids) >= limit: break
-        max_id = (data or {}).get("next_max_id")
-        if not max_id: break
+
+def iter_liked_media_ids(client, count=30):
+    """Fetch liked media IDs"""
+    ids = []
+    for m in client.user_liked_medias(amount=count):
+        ids.append(m.id)
     return ids
 
-def create_app():
-    app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev")
-    limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute", "100 per day"])
 
-    @app.after_request
-    def no_cache(resp):
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-
-    @app.route("/", methods=["GET","POST"])
-    @limiter.limit("6/minute")
-    @app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET", "POST"])
 def index():
     log = ""
     if request.method == "POST":
@@ -104,43 +58,42 @@ def index():
             c.delay_range = [1, 3]
 
             if sid:
-                log += "Logging in with sessionid…\n"
+                log += "Logging in with sessionid…\\n"
                 c.login_by_sessionid(sid)
             elif user and pw:
-                log += "Logging in with username/password…\n"
+                log += "Logging in with username/password…\\n"
                 if totps:
                     code = pyotp.TOTP(totps).now()
-                    log += "Using TOTP 2FA…\n"
+                    log += "Using TOTP 2FA…\\n"
                     c.login(user, pw, verification_code=code)
                 else:
                     c.login(user, pw)
             else:
-                log += "Error: Provide sessionid OR username/password.\n"
+                log += "Error: Provide sessionid OR username/password.\\n"
                 return render_template_string(HTML, log=log)
 
-            log += "Fetching liked posts…\n"
+            log += "Fetching liked posts…\\n"
             ids = iter_liked_media_ids(c, count)
             if not ids:
-                log += "No liked posts found.\n"
+                log += "No liked posts found.\\n"
             else:
-                log += f"Found {len(ids)}. Unliking up to {count}…\n"
+                log += f"Found {len(ids)}. Unliking up to {count}…\\n"
                 removed = 0
                 for mid in ids:
                     try:
                         c.media_unlike(mid)
                         removed += 1
-                        log += f"{removed}: Unliked {mid}\n"
+                        log += f"{removed}: Unliked {mid}\\n"
                         time.sleep(delay)
                     except Exception as e:
-                        log += f"Stopped due to rate limit/API error: {e}\n"
+                        log += f"Stopped due to rate limit/API error: {e}\\n"
                         break
-                log += f"Done. Unliked {removed} posts.\n"
+                log += f"Done. Unliked {removed} posts.\\n"
         except Exception as e:
-            log += f"Error: {e}\n"
+            log += f"Error: {e}\\n"
 
     return render_template_string(HTML, log=log)
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
