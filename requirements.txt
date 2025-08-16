@@ -3,8 +3,8 @@ flask-limiter==3.8.0
 requests>=2.32.0
 gunicorn==22.0.0
 instagrapi==2.2.1
-moviepy==1.0.3
 pydantic==2.11.7
 PySocks==1.7.1
-pycryptodomex==3.23.0
+pycryptodomex==3.20.0
 pyotp==2.9.0
+moviepy==2.0.0   # fixes that moviepy==1.0.3 error
