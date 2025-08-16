@@ -83,21 +83,34 @@ def create_app():
     @limiter.limit("6/minute")
     def index():
         log = ""
-        if request.method == "POST":
-            sid = (request.form.get("sid") or "").strip()
+                if request.method == "POST":
+            sid   = (request.form.get("sid") or "").strip()
+            user  = (request.form.get("user") or "").strip()
+            pw    = (request.form.get("pass") or "").strip()
+            totps = (request.form.get("totp") or "").strip()
+
             try: count = min(max(int(request.form.get("count", 30)), 1), 200)
             except: count = 30
             try: delay = max(float(request.form.get("delay", 1.0)), 0.0)
             except: delay = 1.0
 
-            if not sid or len(sid) < 20:
-                log += "Error: Invalid sessionid.\n"
-                return render_template_string(HTML, log=log)
-
             try:
                 c = Client(); c.delay_range = [1, 3]
-                log += "Logging in with sessionid…\n"
-                c.login_by_sessionid(sid)   # ephemeral: we don’t dump settings
+
+                if sid:
+                    log += "Logging in with sessionid…\n"
+                    c.login_by_sessionid(sid)
+                elif user and pw:
+                    log += "Logging in with username/password…\n"
+                    if totps:
+                        code = pyotp.TOTP(totps).now()
+                        log += "Using TOTP 2FA…\n"
+                        c.login(user, pw, verification_code=code)
+                    else:
+                        c.login(user, pw)
+                else:
+                    log += "Error: Provide sessionid OR username/password.\n"
+                    return render_template_string(HTML, log=log)
 
                 log += "Fetching liked posts…\n"
                 ids = iter_liked_media_ids(c, count)
@@ -128,4 +141,5 @@ if __name__ == "__main__":
     # For local testing
 
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
