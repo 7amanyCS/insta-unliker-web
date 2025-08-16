@@ -33,11 +33,23 @@ app = Flask(__name__)
 
 
 def iter_liked_media_ids(client: Client, count: int = 30):
-    """Fetch up to `count` liked media IDs."""
-    ids = []
-    for m in client.user_liked_medias(amount=count):
-        ids.append(m.id)
-    return ids
+    try:
+        medias = client.liked_medias(amount=count)
+        return [m.id for m in medias]
+    except Exception:
+        # fallback: raw API; grab ids defensively
+        out = []
+        res = client.private_request("feed/liked/", params={"count": count})
+        for item in (res or {}).get("items", []):
+            media = item.get("media", item) or {}
+            pk = media.get("id") or media.get("pk") or media.get("pk_id")
+            if pk:
+                out.append(str(pk))
+            if len(out) >= count:
+                break
+        return out
+
+
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -109,4 +121,5 @@ def index():
 if __name__ == "__main__":
     # For local testing
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
